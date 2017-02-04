@@ -28,7 +28,7 @@ from fbcommon import *
 from gi.repository import Gtk, GObject, Pango
 
 
-# 'http://proxy.flibusta.is/sql/lib.libgenrelist.sql.gz'
+# 'lib.libgenrelist.sql.gz'
 
 
 def import_genre_list_sql(fname):
