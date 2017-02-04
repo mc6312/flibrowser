@@ -311,24 +311,29 @@ class LibSettingsEditor(SettingsEditor):
         self.grid.attach_next_to(create_aligned_label(u'Коды языков разделяются пробелами'), self.entrylangs, Gtk.PositionType.BOTTOM, 1, 1)
 
     def set_data(self):
-        self.btnlibrootdir.set_current_folder(self.library.libraryRootDir)
-        self.btnlibindexfile.select_filename(self.library.libraryIndexFile)
+        if self.library.libraryRootDir:
+            self.btnlibrootdir.set_current_folder(self.library.libraryRootDir)
+
+        if self.library.libraryIndexFile:
+            self.btnlibindexfile.select_filename(self.library.libraryIndexFile)
 
         self.tmpLangs = self.library.languages
         self.entrylangs.set_text(self.library.languages_to_str())
 
     def validate_data(self):
         self.tmpLibraryRootDir = self.btnlibrootdir.get_current_folder()
-        #if self.tmpLibraryRootDir is not None:
-        # пёс с ним, не будем ругаться
+        if not self.tmpLibraryRootDir: # пустая строка, не только None
+            return u'Не выбран каталог библиотеки'
+
+        #print('%s.tmpLibraryRootDir: "%s"' % (self.__class__.__name__, self.tmpLibraryRootDir))
 
         #
         self.tmpLibraryIndexFile = self.btnlibindexfile.get_filename()
-        if os.path.isfile(self.tmpLibraryIndexFile):
-            self.btnlibindexfile.grab_focus()
-            return None
-        else:
+        if not self.tmpLibraryIndexFile:
             return u'Не выбран файл индекса библиотеки'
+
+        #if not os.path.isfile(self.tmpLibraryIndexFile):
+        #    self.btnlibindexfile.grab_focus()
 
         #
         self.tmpLangs = self.library.config.languages_from_str(self.entrylangs.get_text())
@@ -357,6 +362,7 @@ class InitialSettingsDialog():
         box.pack_start(self.stgrid.grid, True, True, 0)
 
     def run(self):
+        self.stgrid.set_data()
         self.dialog.show_all()
 
         ret = False
@@ -366,9 +372,11 @@ class InitialSettingsDialog():
 
             if r == Gtk.ResponseType.OK:
                 # settings
-                es = self.stgrid.get_data()
+                es = self.stgrid.validate_data()
                 if not es:
-                    break
+                    es = self.stgrid.get_data()
+                    if not es:
+                        break
 
                 msg_dialog(self.dialog, u'Ошибка', es, msgtype=Gtk.MessageType.ERROR)
             else:
