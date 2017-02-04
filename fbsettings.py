@@ -492,21 +492,27 @@ class SettingsDialog():
 
 def main():
     from flibcrutch import Library
+
+    print('* init library')
     library = Library()
     lse = library.load_settings()
     if lse:
-        print(lse)
+        print('library settings load error:', lse)
 
     lse = library.validate_settings()
     if lse:
-        print(lse)
+        print('library validate settings error:', lse)
 
-    library.load()
-    #if InitialSettingsDialog(library).run():
-    #    print(library.libraryRootDir)
-    #    print(library.libraryIndexFile)
-    v = SettingsDialog(None, library).run()
-    print('settings dialog returns', v)
+    print(library)
+
+    """library.load()"""
+    if InitialSettingsDialog(library).run():
+        print(library.libraryRootDir)
+        print(library.libraryIndexFile)
+    #v = SettingsDialog(None, library).run()
+    #print('settings dialog returns', v)
+
+    print(library)
     return 0
 
 if __name__ == '__main__':

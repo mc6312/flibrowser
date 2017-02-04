@@ -102,7 +102,10 @@ class Settings():
 
         with open(self.cfgPath, 'w+', encoding=IOENCODING) as cfgf:
             for kv in sorted(self.cfg.keys()):
-                cfgf.write(u'%s %s\n' % (kv, val_to_str(self.cfg[kv])))
+                vs = val_to_str(self.cfg[kv])
+                if vs:
+                    # пустые переменные не сохраняем
+                    cfgf.write(u'%s %s\n' % (kv, vs))
 
     def get_value(self, vname, defv=None):
         if vname in self.cfg:

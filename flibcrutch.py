@@ -205,6 +205,29 @@ class Library():
 
         self.config = self.LibSettings()
 
+    def __str__(self):
+        # для отладки
+
+        return u'''%s:
+  appDir:           "%s"
+  cfgDir:           "%s"
+  libraryRootDir:   "%s"
+  libraryIndexFile: "%s"
+  dataDirectory:    "%s"
+  genreNamesFile:   "%s"
+  extractDir:       "%s"
+  authors:          %d item(s)
+  books:            %d item(s)
+  bundles:          %d item(s)
+  series:           %d item(s)
+  tags:             %d item(s)
+  genrenames:       %d item(s)
+  languages:        %d item(s)''' % (self.__class__.__name__,
+        self.appDir, self.cfgDir, self.libraryRootDir,
+        self.libraryIndexFile, self.dataDirectory, self.genreNamesFile, self.extractDir,
+        len(self.authors), len(self.books), len(self.bundles), len(self.series), len(self.tags),
+        len(self.genrenames), len(self.languages))
+
     def parse_author_name(self, rawname):
         """Приведение списка имён авторов к виду "Фамилия Имя Отчество[, Фамилия Имя Отчество]"."""
 
@@ -597,11 +620,16 @@ class Library():
         self.dataDirectory = self.cfgDir # нефиг разводить х.з. что. self.config.get_value(self.LibSettings.V_DATADIR, self.cfgDir)
         self.extractDir = self.config.get_value(self.LibSettings.V_EXTDIR, self.extractDir)
 
+        #print('self.libraryRootDir: %s\nself.libraryIndexFile: %s\nself.dataDirectory: %s\nself.extractDir: %s' % (self.libraryRootDir, self.libraryIndexFile, self.dataDirectory, self.extractDir))
+
         self.languages_from_str(self.config.get_value(self.LibSettings.V_LANGS))
 
         return None
 
     def validate_settings(self):
+        if not self.libraryRootDir:
+            self.libraryRootDir = u'.'
+
         self.libraryRootDir = os.path.abspath(os.path.expanduser(self.libraryRootDir))
         if not os.path.exists(self.libraryRootDir):
             return u'Каталог "%s" не найден' % self.libraryRootDir
@@ -611,13 +639,16 @@ class Library():
             В случае успеха возвращает кортеж вида (path, None),
             в случае ошибки - (None, error_string)."""
 
+            if not path:
+                return (None, u'%s: путь не задан' % what)
+
             if path.startswith(u'~'):
                 path = os.path.expanduser(path)
             else:
                 ixdir = os.path.split(path)[0]
                 if not ixdir:
                     if not relativeto:
-                        return (None, u'%s: должен быть указан абсолютный или относительный путь')
+                        return (None, u'%s: должен быть указан абсолютный или относительный путь' % what)
 
                     path = os.path.join(relativeto, path)
 
@@ -627,6 +658,7 @@ class Library():
             return (path, None)
 
         self.libraryIndexFile, errs = validate_path(u'Файл общего индекса', self.libraryIndexFile, self.libraryRootDir)
+        #print(self.libraryIndexFile, errs)
         if errs:
             return errs
 
@@ -709,7 +741,10 @@ def main():
         print(lse)
         return
 
-    library.validate_settings()
+    lse = library.validate_settings()
+    if lse:
+        print(lse)
+        return
 
     print(library.libraryIndexFile)
 
