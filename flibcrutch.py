@@ -632,7 +632,7 @@ class Library():
 
                                         dstfpath = os.path.join(self.extractDir, dstsubdir)
 
-                                        if dstsubdir not in createddirs:
+                                        if dstsubdir and dstsubdir not in createddirs:
                                             os.makedirs(dstfpath)
                                             createddirs.add(dstsubdir)
 
@@ -645,7 +645,7 @@ class Library():
                                                 dstf.write(srcf.read(iosize))
                                                 remain -= iosize
 
-                                        if EXTRACTPARAM_ZIPFILE in params:
+                                        if pack:
                                             with zipfile.ZipFile(dstfpath + u'.zip', 'w', zipfile.ZIP_DEFLATED) as dstarcf:
                                                 dstarcf.write(dstfpath, dstfname)
                                             os.remove(dstfpath)

@@ -603,7 +603,9 @@ class MainWnd():
                     em += u'\n'
                 elif em is None:
                     em = u''
-                em += ex.args[0] if ex.args[0] else ex.__class__.__error__
+
+                exs = str(ex)
+                em += exs if exs else ex.__class__.__error__
                 ei = Gtk.MessageType.ERROR
 
             if em:

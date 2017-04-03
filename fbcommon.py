@@ -18,7 +18,7 @@
 
 
 TITLE = u'Flibrowser'
-VERSION = u'1.8.0'
+VERSION = u'1.8.0.1'
 COPYRIGHT = u'Copyright 2014..2017 MC-6312'
 
 
