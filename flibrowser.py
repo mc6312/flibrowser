@@ -29,7 +29,7 @@ import os.path, sys
 
 
 # для отладки, чтоб не грузить БД в 100500 книжек (которой может и нет вовсе на момент отладки)
-USEFAKELIBRARY = True
+USEFAKELIBRARY = False
 
 
 # нашевсё
