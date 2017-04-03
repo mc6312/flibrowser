@@ -29,7 +29,7 @@ import os.path, sys
 
 
 # для отладки, чтоб не грузить БД в 100500 книжек (которой может и нет вовсе на момент отладки)
-USEFAKELIBRARY = False
+USEFAKELIBRARY = True
 
 
 # нашевсё
@@ -47,12 +47,12 @@ if USEFAKELIBRARY:
     ddate2 = datetime.date(2000, 1, 1)
 
     library.books = {1:BookInfo(1, 1, u'1.fb2.zip', u'Методы и приёмы освежевания летающих объектов', 1, 1, u'fb2', 666, u'ru', set((1,)), 1, ddate),
-        2:BookInfo(2, 1, u'2.fb2.zip', u'33 способа проедания насквозь', 1, 2, u'fb2', 666, u'ru', set((1, 2)), 1, ddate),
-        3:BookInfo(3, 2, u'3.fb2.zip', u'Венерианские ханурики', 0, 0, u'fb2', 666, u'ru', set((1,)), 1, ddate2),
-        4:BookInfo(4, 2, u'4.fb2.zip', u'Вино из мухоморчиков', 0, 0, u'fb2', 666, u'ru', set((1, 3)), 2, ddate2),
-        5:BookInfo(5, 2, u'5.fb2.zip', u'Были они бледные и косоглазые', 0, 0, u'fb2', 666, u'ru', set((1,)), 1, ddate2),
-        6:BookInfo(6, 3, u'6.fb2.zip', u'Автобиография анацефала', 0, 0, u'fb2', 666, u'ru', set((2,)), 2, ddate),
-        7:BookInfo(7, 4, u'7.fb2.zip', u'Как йа был фффтумани', 0, 0, u'fb2', 666, u'ru', set((3,)), 2, ddate),
+        2:BookInfo(2, 1, u'2.fb2', u'33 способа проедания насквозь', 1, 2, u'fb2', 666, u'ru', set((1, 2)), 1, ddate),
+        3:BookInfo(3, 2, u'3.fb2', u'Венерианские ханурики', 0, 0, u'fb2', 666, u'ru', set((1,)), 1, ddate2),
+        4:BookInfo(4, 2, u'4.fb2', u'Вино из мухоморчиков', 0, 0, u'fb2', 666, u'ru', set((1, 3)), 2, ddate2),
+        5:BookInfo(5, 2, u'5.fb2', u'Были они бледные и косоглазые', 0, 0, u'fb2', 666, u'ru', set((1,)), 1, ddate2),
+        6:BookInfo(6, 3, u'6.fb2', u'Автобиография анацефала', 0, 0, u'fb2', 666, u'ru', set((2,)), 2, ddate),
+        7:BookInfo(7, 4, u'7.fb2', u'Как йа был фффтумани', 0, 0, u'fb2', 666, u'ru', set((3,)), 2, ddate),
         }
     library.authors = {1:AuthorInfo(1, u'Говнищер Мухаммед Чжанович', set((1, 2))),
         2:AuthorInfo(2, u'Брэдбери Рэй', set((3, 4, 5))),
@@ -273,8 +273,7 @@ class MainWndSettings(Settings):
     WINDOW_H = 'window.h'
     WINDOW_MAX = 'window.max'
 
-    EXTRACT_RENAME_TITLE = 'extract.rename.title'
-    EXTRACT_RENAME_AUTHOR = 'extract.rename.author'
+    EXTRACT_FNAME_TEMPLATE = 'extract.filename_template'
     EXTRACT_PACK = 'extract.pack'
 
     FILTER_IS_REGEXP = 'filter.%s.is_regexp'
@@ -290,12 +289,12 @@ class MainWndSettings(Settings):
     FILTER_FNAMES_REGEXP = FILTER_IS_REGEXP % FILTER_FNAMES
 
     VALID_KEYS = {WINDOW_X:int, WINDOW_Y:int, WINDOW_W:int, WINDOW_H:int, WINDOW_MAX:bool,
-        EXTRACT_RENAME_TITLE:bool, EXTRACT_RENAME_AUTHOR:bool, EXTRACT_PACK:bool,
+        EXTRACT_FNAME_TEMPLATE:str, EXTRACT_PACK:bool,
         FILTER_AUTHOR_REGEXP:bool, FILTER_TITLE_REGEXP:bool, FILTER_SERIES_REGEXP:bool,
         FILTER_FNAMES_REGEXP:bool}
 
     DEFAULTS = {WINDOW_X:None, WINDOW_Y:None, WINDOW_W:800, WINDOW_H:600, WINDOW_MAX:False,
-        EXTRACT_RENAME_TITLE:True, EXTRACT_RENAME_AUTHOR:False, EXTRACT_PACK:False,
+        EXTRACT_FNAME_TEMPLATE:'', EXTRACT_PACK:False,
         FILTER_AUTHOR_REGEXP:False, FILTER_TITLE_REGEXP:False, FILTER_SERIES_REGEXP:False,
         FILTER_FNAMES_REGEXP:False}
 
@@ -332,8 +331,7 @@ class MainWnd():
         Кому сильно надо - окошко руками отмасштабирует."""
 
         # extract controls
-        self.bookunprentitlechk.set_active(self.uistate.get_value(self.uistate.EXTRACT_RENAME_TITLE))
-        self.bookunprenauthchk.set_active(self.uistate.get_value(self.uistate.EXTRACT_RENAME_AUTHOR))
+        self.bookfntemplate.set_text(self.uistate.get_value(self.uistate.EXTRACT_FNAME_TEMPLATE))
         self.bookunpzipchk.set_active(self.uistate.get_value(self.uistate.EXTRACT_PACK))
 
         # search field parameters
@@ -362,8 +360,7 @@ class MainWnd():
 
         if ctrls:
             # extract controls
-            self.uistate.cfg[self.uistate.EXTRACT_RENAME_TITLE] = self.bookunprentitlechk.get_active()
-            self.uistate.cfg[self.uistate.EXTRACT_RENAME_AUTHOR] = self.bookunprenauthchk.get_active()
+            self.uistate.cfg[self.uistate.EXTRACT_FNAME_TEMPLATE] = self.bookfntemplate.get_text().strip()
             self.uistate.cfg[self.uistate.EXTRACT_PACK] = self.bookunpzipchk.get_active()
 
             # search field parameters
@@ -593,18 +590,11 @@ class MainWnd():
             ei = Gtk.MessageType.WARNING
             try:
                 #raise KeyError, u'проверка'
-                bxpar = set()
+                fntemplate = BookFileNameTemplate(library, self.bookfntemplate.get_text())
 
-                if self.bookunprentitlechk.get_active():
-                    bxpar.add(EXTRACTPARAM_RENAME)
+                pkzip = self.bookunpzipchk.get_active()
 
-                    if self.bookunprenauthchk.get_active():
-                        bxpar.add(EXTRACTPARAM_AUTHORNAME)
-
-                if self.bookunpzipchk.get_active():
-                    bxpar.add(EXTRACTPARAM_ZIPFILE)
-
-                em = library.extract_books(self.bookids, bxpar, callback=self.progress_callback)
+                em = library.extract_books(self.bookids, fntemplate, pkzip, callback=self.progress_callback)
                 #print(em)
                 #raise Exception('test')
 
@@ -767,6 +757,9 @@ class MainWnd():
 
     def chkusedatefilter_toggled(self):
         self.maxdatechooser.set_sensitive(self.mindatechooser.checkbox.get_active())
+
+    def bookfname_template_help(self, btn, data=None):
+        msg_dialog(self.window, u'Шаблон имени файла', BookFileNameTemplate.TEMPLATE_HELP, msgtype=Gtk.MessageType.INFO)
 
     def __init__(self):
         """Инициализация междумордия и прочего"""
@@ -1068,22 +1061,22 @@ class MainWnd():
         self.txtextractpath.set_text(library.extractDir)
         bookpathbox.pack_start(self.txtextractpath, True, True, 0)
 
-        # book extract params box
-        bookparambox = Gtk.HBox(spacing=WIDGET_SPACING)
-        #bookparambox.set_border_width(WIDGET_SPACING)
-        blvbox.pack_start(bookparambox, False, False, 0)
+        # book file name template
+        self.bnftemplate = None
 
-        self.bookunprentitlechk = Gtk.CheckButton(u'переименовать по названию книги,', False)
-        self.bookunprentitlechk.set_active(True)
-        bookparambox.pack_start(self.bookunprentitlechk, False, False, 0)
+        bookpathbox.pack_start(Gtk.Label(u', назвав файл по шаблону'), False, False, 0)
 
-        self.bookunprenauthchk = Gtk.CheckButton(u'добавить имя автора', False)
-        self.bookunprenauthchk.set_active(False)
-        bookparambox.pack_start(self.bookunprenauthchk, False, False, 0)
+        self.bookfntemplate = Gtk.Entry()
+        self.bookfntemplate.set_width_chars(25)
+        bookpathbox.pack_start(self.bookfntemplate, False, False, 0)
+
+        btnbfntemplatehelp = Gtk.Button(u'?')
+        btnbfntemplatehelp.connect('clicked', self.bookfname_template_help)
+        bookpathbox.pack_start(btnbfntemplatehelp, False, False, 0)
 
         self.bookunpzipchk = Gtk.CheckButton(u'и сжать ZIP', False)
         self.bookunpzipchk.set_active(False)
-        bookparambox.pack_start(self.bookunpzipchk, False, False, 0)
+        bookpathbox.pack_start(self.bookunpzipchk, False, False, 0)
 
         #
         self.labmsg = Gtk.Label()

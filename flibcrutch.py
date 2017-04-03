@@ -130,12 +130,6 @@ class AuthorInfo():
         self.books = books
 
 
-# параметры извлечения книг из (архива) библиотеки
-EXTRACTPARAM_RENAME = 0     # добавить к имени файла название книги (и цикла, если есть)
-EXTRACTPARAM_AUTHORNAME = 1 # добавить к имени файла имя автора
-EXTRACTPARAM_ZIPFILE = 2    # сжать файл книги в архив ZIP
-
-
 def inpx_date_to_date(s, defval):
     """Преобразование строки вида YYYY-MM-DD в datetime.date.
     Возвращает результат преобразования в случае успеха.
@@ -146,6 +140,111 @@ def inpx_date_to_date(s, defval):
         return d.date()
     except ValueError:
         return defval
+
+
+class BookFileNameTemplate():
+    VALID_FN_CHARS = ' ().,;!-_#@' + os.sep
+
+    TF_AUTHOR, TF_BOOKID, TF_FILENAME, TF_TITLE, TF_SERNAME, TF_SERNO = range(6)
+
+    TEMPLATE_FIELDS = {'a': (u'имя автора', TF_AUTHOR),
+        'i': (u'идентификатор книги', TF_BOOKID),
+        'f': (u'оригинальное имя файла', TF_FILENAME),
+        't': (u'название книги', TF_TITLE),
+        'n': (u'номер в серии', TF_SERNAME),
+        's': (u'название серии', TF_SERNO)}
+
+    def __init__(self, library, ts):
+        """Разбирает строку шаблона ts.
+        Строка может быть пустой (см. описание ф-и get_book_fname).
+        Шаблон складывается в поле template.
+        library - экземпляр Library.
+        В случае ошибок в формате шаблона генерируется исключение ValueError."""
+
+        self.library = library
+
+        ts = ts.strip() # пробелы в начале и в конце всегда убираем!
+        self.templatestr = ts
+
+        self.template = []
+        # список элементов шаблона
+        # может содержать строки (которые потом используются "как есть"),
+        # или цельночисленные значения TF_xxx
+
+        slen = len(ts)
+        six = 0
+
+        while six < slen:
+            sstart = six
+            while (six < slen) and (ts[six] != '%'): six += 1
+
+            if six > sstart:
+                self.template.append(ts[sstart:six])
+
+            if six >= slen:
+                break
+
+            six += 1 # проходим мимо %
+            if six >= slen:
+                raise ValueError(u'Ошибка в шаблоне: преждевременное завершение шаблона (нет имени поля)')
+
+            tv = ts[six]
+            six += 1
+
+            if tv not in self.TEMPLATE_FIELDS:
+                raise ValueError(u'Ошибка в шаблоне: неподдерживаемое имя поля - "%s"' % tv)
+
+            self.template.append(self.TEMPLATE_FIELDS[tv][1])
+
+    def get_book_fname(self, bnfo):
+        """Генерирует не содержащее недопустимых для ФС символов имя файла
+        вида 'bookid title (cycle - no).ext' из полей bnfo (экземпляра BookInfo).
+        Имя может содержать разделители путей (для подкаталогов).
+        Возвращает кортеж из двух элементов - пути и собственно имени файла.
+        Расширение добавляется всегда (из поля bnfo.format).
+        Если шаблон (self.template) пустой - возвращаем "стандартное" имя файла
+        из bookid и format.
+        Путь может быть пустой строкой, если шаблон не содержал
+        разделителей путей."""
+
+        if not self.template:
+            return ('', u'%s.%s' % (bnfo.filename, bnfo.format))
+
+        fname = []
+
+        for tfld in self.template:
+            if isinstance(tfld, str):
+                fname.append(tfld)
+            # иначе считаем, что шаблон правильно сгенерен конструктором, и значение цельночисленное
+            elif tfld == self.TF_AUTHOR:
+                fname.append(bnfo.author.aname)
+            elif tfld == self.TF_BOOKID:
+                fname.append(str(bnfo.bookid))
+            elif tfld == self.TF_FILENAME:
+                fname.append(bnfo.filename)
+            elif tfld == self.TF_TITLE:
+                fname.append(bnfo.title)
+            elif tfld == self.TF_SERNAME:
+                fname.append('' if not bnfo.series else self.library.series[bnfo.series])
+            elif tfld == self.TF_SERNO:
+                fname.append(str(bnfo.serno) if bnfo.series and bnfo.serno else '')
+
+        fname.append('.%s' % bnfo.format) # расширение файла добавляем всегда
+
+        # выкидываем недопустимые для имен файла символы
+        return os.path.split(u''.join(filter(lambda c: c.isalnum() or c in self.VALID_FN_CHARS, ''.join(fname))))
+
+
+BookFileNameTemplate.TEMPLATE_HELP = u'''Шаблон - строка с полями вида %%N.
+Поддерживаются поля:
+%s
+
+В случае пустого шаблона будет использоваться оригинальное имя файла.
+Шаблон может содержать символы "%s" - в этом случае будут создаваться подкаталоги.''' % \
+(u'\n'.join(map(lambda k: u'%s\t- %s' % (k, BookFileNameTemplate.TEMPLATE_FIELDS[k][0]), sorted(BookFileNameTemplate.TEMPLATE_FIELDS.keys()))),
+# ибо непосредственно в описании класса лямбда с какого-то хрена не видит ранее заданные переменные класса,
+# а создавать такой хелповник динамически вызовом метода класса - не интересно, т.к. он нужен до создания экземпляра класса
+os.sep)
 
 
 class Library():
@@ -456,28 +555,13 @@ class Library():
         else:
             self.print_exec_time(self.parse_inpx_file, self.libraryIndexFile, callback)
 
-    def get_book_fs_name(self, bnfo, param):
-        """Генерирует не содержащее недопустимых для ФС символов имя файла
-        вида 'bookid title (cycle - no).ext' из полей экземпляра BookInfo;
-        param - множество значений EXTRACTPARAM_xxx."""
-
-        bname = u'%d' % bnfo.bookid
-
-        if EXTRACTPARAM_RENAME in param:
-            if EXTRACTPARAM_AUTHORNAME in param:
-                bname += u' %s.' % self.authors[bnfo.authorid].aname
-
-            bname += u' %s%s.%s' % (bnfo.title, u'' if not bnfo.series else u' (%s%s)' % (self.series[bnfo.series], (u' - %d' % bnfo.serno) if bnfo.serno else u''), bnfo.format)
-        else:
-            bname = bnfo.filename
-
-        # вот спасибочки за поломатую совместимость!
-        return u''.join(filter(lambda c: c.isalnum() or c in ' ().,;!-_#@', bname))
-
-    def extract_books(self, bookids, params, callback=None):
+    def extract_books(self, bookids, template, pack=False, callback=None):
         """Извлекает книги.
-        bookids - список, множество или кортеж bookid;
-        param - множество значений EXTRACTPARAM_xxx;
+        bookids         - список идентификаторов книг в БД
+        template        - экземпляр BookFileNameTemplate;
+                          если генерируемые им имена файлов содержат разделители путей,
+                          будут созданы соотв. подкаталоги в self.extractDir
+        pack            - булевское значение; если True - файлы будут упакованы ZIPом
         callback        - (если не None) функция для отображения прогресса,
                           получает параметр fraction - вещественное число в диапазоне 0.0-1.0
         В случае успеха возвращает пустую строку или None, в случае ошибки
@@ -511,6 +595,8 @@ class Library():
 
         ixbook = 0
 
+        createddirs = set()
+
         for bupath, bubooks in xbundles.values():
             if not os.path.exists(bupath):
                 em.append(u'Файл архива "%s" не найден.' % bupath)
@@ -538,8 +624,19 @@ class Library():
                                     BLOCKSIZE = 1*1024*1024
 
                                     with zf.open(znfo, 'r') as srcf:
-                                        dstfname = self.get_book_fs_name(bnfo, params)
-                                        dstfpath = os.path.join(self.extractDir, dstfname)
+                                        if template:
+                                            dstsubdir, dstfname = template.get_book_fname(bnfo)
+                                        else:
+                                            dstsubdir = u''
+                                            dstfname = u'%s.%s' % (bnfo.filename, bnfo.format)
+
+                                        dstfpath = os.path.join(self.extractDir, dstsubdir)
+
+                                        if dstsubdir not in createddirs:
+                                            os.makedirs(dstfpath)
+                                            createddirs.add(dstsubdir)
+
+                                        dstfpath = os.path.join(dstfpath, dstfname)
 
                                         with open(dstfpath, 'wb+') as dstf:
                                             remain = znfo.file_size
@@ -735,6 +832,9 @@ class Library():
 
 # debug
 def main():
+    print(BookFileNameTemplate.TEMPLATE_HELP)
+    return
+
     library = Library()
     lse = library.load_settings()
     if lse:
@@ -756,6 +856,23 @@ def main():
     print('  loaded')
 
     #print(library.tags)
+
+    t = BookFileNameTemplate(library, '%a/%i - %s (%n) - %t (shit)')
+    #print(t.template)
+
+    print('* template test *')
+
+    maxk = 30
+    for bookid in library.books:
+        bnfo = library.books[bookid]
+
+        print('name:', t.get_book_fname(bnfo))
+
+        maxk -= 1
+        if maxk <= 0:
+            break
+
+    return #!!!
 
     print(u'* поиск')
     t0 = time()
