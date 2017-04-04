@@ -302,7 +302,7 @@ class MainWndSettings(Settings):
 class MainWnd():
     """Основное междумордие"""
 
-    COL_BOOKID, COL_AUTHOR, COL_TITLE, COL_SERIES, COL_SERNO, COL_GENRES, COL_SIZE, COL_DATE = range(8)
+    COL_BOOKID, COL_AUTHOR, COL_TITLE, COL_SERIES, COL_SERNO, COL_GENRES, COL_SIZE, COL_FORMAT, COL_DATE = range(9)
 
     COLID_TO_TTCOLID = {COL_AUTHOR:COL_AUTHOR,
         COL_TITLE:COL_TITLE,
@@ -310,6 +310,7 @@ class MainWnd():
         COL_SERNO:COL_SERIES,
         COL_GENRES:COL_GENRES,
         COL_SIZE:COL_GENRES,
+        COL_FORMAT:COL_FORMAT,
         COL_DATE:COL_GENRES}
 
     def load_ui_state(self):
@@ -427,13 +428,14 @@ class MainWnd():
                         if bnfo.date > filtermaxdate:
                             continue
 
-                # COL_BOOKID, COL_AUTHOR, COL_TITLE, COL_SERIES, COL_SERNO, COL_GENRES, COL_SIZE, COL_DATE
+                # COL_BOOKID, COL_AUTHOR, COL_TITLE, COL_SERIES, COL_SERNO, COL_GENRES, COL_SIZE, COL_FORMAT, COL_DATE
 
                 self.booklist.append((bnfo.bookid, library.authors[bnfo.authorid].aname, bnfo.title,
                     library.get_series_name(bnfo.series),
                     str(bnfo.serno) if bnfo.serno else u'',
                     library.get_book_tags(bnfo),
                     kilobytes_str(bnfo.fsize),
+                    '?' if not bnfo.format else bnfo.format.upper(),
                     u'%s <span color="%s">●</span>' % (bnfo.date.strftime(DATE_FORMAT), get_book_age_color(now, bnfo.date))))
 
             self.booklistview.set_model(self.booklist)
@@ -966,6 +968,7 @@ class MainWnd():
             GObject.TYPE_STRING, # serno
             GObject.TYPE_STRING, # genres
             GObject.TYPE_STRING, # size
+            GObject.TYPE_STRING, # format
             GObject.TYPE_STRING) # date
 
         self.booklistview = Gtk.TreeView(self.booklist)
@@ -1002,6 +1005,7 @@ class MainWnd():
         self.booklistview.append_column(mktvcol(u'#', self.COL_SERNO, False, 1.0))
         self.booklistview.append_column(mktvcol(u'Жанры', self.COL_GENRES, True))
         self.booklistview.append_column(mktvcol(u'Размер', self.COL_SIZE, False, 1.0))
+        self.booklistview.append_column(mktvcol(u'Формат', self.COL_FORMAT, False, 1.0))
 
         # date
         datecol = mktvcol(u'Дата', self.COL_DATE, False, 1.0, True)

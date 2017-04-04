@@ -104,14 +104,17 @@ class REListEditor(SettingsEditor):
 
 class TagNameEditor(SettingsEditor):
     FIELD_NAME = u'Тэги'
-    ICON, TAG, TAGNAME, DISPNAME = range(4)
+    ICON, TAGID, TAGNAME, DISPNAME = range(4)
     CRITICAL = False # т.к. в библиотеке, сделанной другими людьми, могут быть хронические косяки
 
     def __init__(self, library):
         super().__init__()
 
         self.library = library
+        # аналогично library.genrenames
         self.tmpgenrenames = {}
+        # аналогично library.tags
+        self.tmptags = {}
 
         # значение тэга, строка тэга, отображаемая строка тэга
         self.listview, self.liststore, scrollwnd, renderers = create_listview((Pixbuf, GObject.TYPE_INT64, GObject.TYPE_STRING, GObject.TYPE_STRING),
@@ -181,25 +184,26 @@ class TagNameEditor(SettingsEditor):
 
     def validate_data(self):
         self.tmpgenrenames.clear()
+        self.tmptags.clear()
 
         errtags = []
         erritrs = []
 
         itr = self.liststore.get_iter_first()
-        if itr:
-            while True:
-                tagname = self.liststore.get_value(itr, self.TAGNAME)
-                dispname = self.liststore.get_value(itr, self.DISPNAME)
-                if not dispname:
-                    # отсутствие dispname - не критическая ошибка, потому продолжаем сгребать остальные
-                    errtags.append(tagname)
-                    erritrs.append(itr)
+        while itr:
+            tagname = self.liststore.get_value(itr, self.TAGNAME)
+            dispname = self.liststore.get_value(itr, self.DISPNAME)
+            tagid = self.liststore.get_value(itr, self.TAGID)
 
-                self.tmpgenrenames[self.liststore.get_value(itr, self.TAG)] = dispname
+            if not dispname:
+                # отсутствие dispname - не критическая ошибка, потому продолжаем сгребать остальные
+                errtags.append(tagname)
+                erritrs.append(itr)
 
-                itr = self.liststore.iter_next(itr)
-                if not itr:
-                    break
+            self.tmptags[tagid] = tagname
+            self.tmpgenrenames[tagid] = dispname
+
+            itr = self.liststore.iter_next(itr)
 
         if errtags:
             lvpath = self.liststore.get_path(erritrs[0])
@@ -212,6 +216,9 @@ class TagNameEditor(SettingsEditor):
     def get_data(self):
         self.library.genrenames.clear()
         self.library.genrenames.update(self.tmpgenrenames)
+
+        self.library.tags.clear()
+        self.library.tags.update(self.tmptags)
 
     def import_genre_names(self):
         tagdict = import_genre_list(self.parentwnd)
@@ -513,12 +520,12 @@ def main():
 
     print(library)
 
-    """library.load()"""
-    if InitialSettingsDialog(library).run():
-        print(library.libraryRootDir)
-        print(library.libraryIndexFile)
-    #v = SettingsDialog(None, library).run()
-    #print('settings dialog returns', v)
+    library.load()
+    #if InitialSettingsDialog(library).run():
+    #    print(library.libraryRootDir)
+    #    print(library.libraryIndexFile)
+    v = SettingsDialog(None, library).run()
+    print('settings dialog returns', v)
 
     print(library)
     return 0
