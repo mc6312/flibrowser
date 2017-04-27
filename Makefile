@@ -1,5 +1,5 @@
 pack = 7z a -mx=9
-docs = COPYING README Changelog
+docs = COPYING README.md Changelog
 basename = flibrowser
 arcx = .7z
 arcname = $(basename)$(arcx)
