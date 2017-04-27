@@ -147,12 +147,14 @@ class BookFileNameTemplate():
 
     TF_AUTHOR, TF_BOOKID, TF_FILENAME, TF_TITLE, TF_SERNAME, TF_SERNO = range(6)
 
-    TEMPLATE_FIELDS = {'a': (u'имя автора', TF_AUTHOR),
-        'i': (u'идентификатор книги', TF_BOOKID),
-        'f': (u'оригинальное имя файла', TF_FILENAME),
-        't': (u'название книги', TF_TITLE),
-        'n': (u'номер в серии', TF_SERNAME),
-        's': (u'название серии', TF_SERNO)}
+    __tpfld = namedtuple('__tpfld', 'description fldid')
+
+    TEMPLATE_FIELDS = {'a': __tpfld(u'имя автора', TF_AUTHOR),
+        'i': __tpfld(u'идентификатор книги', TF_BOOKID),
+        'f': __tpfld(u'оригинальное имя файла', TF_FILENAME),
+        't': __tpfld(u'название книги', TF_TITLE),
+        'n': __tpfld(u'номер в серии', TF_SERNO),
+        's': __tpfld(u'название серии', TF_SERNAME)}
 
     def __init__(self, library, ts):
         """Разбирает строку шаблона ts.
@@ -165,6 +167,11 @@ class BookFileNameTemplate():
 
         ts = ts.strip() # пробелы в начале и в конце всегда убираем!
         self.templatestr = ts
+
+        if not self.templatestr:
+            # раз шаблон пустой - делаем из него умолчальный
+            self.template = [self.TF_BOOKID, self.TF_TITLE]
+            return
 
         self.template = []
         # список элементов шаблона
@@ -194,7 +201,7 @@ class BookFileNameTemplate():
             if tv not in self.TEMPLATE_FIELDS:
                 raise ValueError(u'Ошибка в шаблоне: неподдерживаемое имя поля - "%s"' % tv)
 
-            self.template.append(self.TEMPLATE_FIELDS[tv][1])
+            self.template.append(self.TEMPLATE_FIELDS[tv].fldid)
 
     def get_book_fname(self, bnfo):
         """Генерирует не содержащее недопустимых для ФС символов имя файла
@@ -241,7 +248,7 @@ BookFileNameTemplate.TEMPLATE_HELP = u'''Шаблон - строка с поля
 
 В случае пустого шаблона будет использоваться оригинальное имя файла.
 Шаблон может содержать символы "%s" - в этом случае будут создаваться подкаталоги.''' % \
-(u'\n'.join(map(lambda k: u'%s\t- %s' % (k, BookFileNameTemplate.TEMPLATE_FIELDS[k][0]), sorted(BookFileNameTemplate.TEMPLATE_FIELDS.keys()))),
+(u'\n'.join(map(lambda k: u'%s\t- %s' % (k, BookFileNameTemplate.TEMPLATE_FIELDS[k].description), sorted(BookFileNameTemplate.TEMPLATE_FIELDS.keys()))),
 # ибо непосредственно в описании класса лямбда с какого-то хрена не видит ранее заданные переменные класса,
 # а создавать такой хелповник динамически вызовом метода класса - не интересно, т.к. он нужен до создания экземпляра класса
 os.sep)
