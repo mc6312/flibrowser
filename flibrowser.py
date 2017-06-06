@@ -146,6 +146,14 @@ class FilterEntry():
         self.set_status_icon(None)
         self.regex = None
 
+    def filter_pattern(self, s):
+        """Фильтрация строки-шаблона (напр. от нежелательных символов).
+        Вызывается из validate_pattern(), если шаблон - обычная строка
+        (для регулярных выражений НЕ вызывается).
+        Метод при необходимости перекрывается классом-потомком."""
+
+        return s
+
     def validate_pattern(self):
         """Компиляция выражения из поля ввода, установка
         иконки в зависимости от результата компиляции."""
@@ -168,7 +176,7 @@ class FilterEntry():
                     self.searchfunc = self.search_regexp
                 else:
                     self.regex = None
-                    self.pattern = t.lower()
+                    self.pattern = self.filter_pattern(t.lower())
                     #print self.pattern
                     self.searchfunc = self.search_text
 
@@ -182,6 +190,14 @@ class FilterEntry():
         self.set_status_icon(sti)
 
         return rok
+
+
+class AuthorFilterEntry(FilterEntry):
+    def filter_pattern(self, s):
+        """Для поля ввода имени автора - удаление некоторых нежелательных
+        символов."""
+
+        return ''.join(filter(lambda c: c not in ',;', s))
 
 
 class DateChooser():
@@ -869,14 +885,14 @@ class MainWnd():
 
         self.filters = {} # для загрузки/сохранения настроек
 
-        def add_filter_entry(txt, cfgvname):
+        def add_filter_entry(txt, cfgvname, fclass=FilterEntry):
             fllab = flgr.append_row(txt)
-            fe = FilterEntry(flgr, fllab)
+            fe = fclass(flgr, fllab)
             self.filters[cfgvname] = fe
             return fe
 
         # фильтр по авторам
-        self.fltrauthorentry = add_filter_entry(u'_1. Автор:', self.uistate.FILTER_AUTHOR)
+        self.fltrauthorentry = add_filter_entry(u'_1. Автор:', self.uistate.FILTER_AUTHOR, AuthorFilterEntry)
 
         # фильтр по названиям
         self.fltrtitleentry = add_filter_entry(u'_2. Названиe:', self.uistate.FILTER_TITLE)
