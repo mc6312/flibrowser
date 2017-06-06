@@ -640,7 +640,8 @@ class Library():
                                         dstfpath = os.path.join(self.extractDir, dstsubdir)
 
                                         if dstsubdir and dstsubdir not in createddirs:
-                                            os.makedirs(dstfpath)
+                                            if not os.path.exists(dstfpath):
+                                                os.makedirs(dstfpath)
                                             createddirs.add(dstsubdir)
 
                                         dstfpath = os.path.join(dstfpath, dstfname)
