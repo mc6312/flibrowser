@@ -121,13 +121,34 @@ class BookInfo():
 
 
 class AuthorInfo():
+    """ aid         - хэш нормализованного имени автора
+        aname       - имя автора в человекочитаемом виде
+        shortname   - сокращенное имя автора (см. Changelog 1.8.5)
+        books       - множество bookid"""
     def __init__(self, aid, aname, books):
-        # aid   - хэш нормализованного имени автора
         self.aid = aid
-        # aname - имя автора в человекочитаемом виде
         self.aname = aname
-        # books - множество bookid
+        self.shortname = self.make_shortname(aname)
         self.books = books
+
+    @staticmethod
+    def make_shortname(aname):
+        aname = list(map(lambda s: s.strip(), aname.split(',')))
+        if len(aname) > 2:
+            # > 2 авторов
+            del aname[2:]
+            suf2 = ' и др.'
+        else:
+            suf2 = ''
+
+        aname = ', '.join(aname)
+        if len(aname) > 64:
+            aname = aname[:61]
+            suf1 = '...'
+        else:
+            suf1 = ''
+
+        return '%s%s%s' % (aname, suf1, suf2)
 
 
 def inpx_date_to_date(s, defval):
@@ -224,7 +245,7 @@ class BookFileNameTemplate():
                 fname.append(tfld)
             # иначе считаем, что шаблон правильно сгенерен конструктором, и значение цельночисленное
             elif tfld == self.TF_AUTHOR:
-                fname.append(bnfo.author.aname)
+                fname.append(bnfo.author.shortname)
             elif tfld == self.TF_BOOKID:
                 fname.append(str(bnfo.bookid))
             elif tfld == self.TF_FILENAME:
@@ -840,6 +861,12 @@ class Library():
 
 # debug
 def main():
+    print(AuthorInfo.make_shortname('Иванов Иван Иваныч, Сидоров Сидор Сидорыч'))
+    print(AuthorInfo.make_shortname('Петров Пётр Петрович, Сергеев Сергей Сергеич, Климов Клим Климыч, Чон Ду Хван'))
+    print(AuthorInfo.make_shortname('Петров-Задерищенский Навуходоносор Сарданапалович, Сергеев-Оглы Нурмухаммед Кельдыбабаевич, Климов Клим Климыч, Чон Ду Хван'))
+
+    return
+
     print(BookFileNameTemplate.TEMPLATE_HELP)
     return
 
