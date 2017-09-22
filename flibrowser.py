@@ -1121,6 +1121,12 @@ class MainWnd():
         self.bookfntemplate.set_width_chars(25)
         bookpathbox.pack_start(self.bookfntemplatecbox, False, False, 0)
 
+        btnbfntplovr = Gtk.Button('...')
+        bookpathbox.pack_start(btnbfntplovr, False, False, 0)
+
+        self.bookfntemplateovr = Gtk.Overlay()
+        self.bookfntemplateovr.add_overlay(btnbfntplovr)
+
         btnbfntemplatehelp = Gtk.Button(u'?')
         btnbfntemplatehelp.connect('clicked', self.bookfname_template_help)
         bookpathbox.pack_start(btnbfntemplatehelp, False, False, 0)
