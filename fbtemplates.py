@@ -77,13 +77,13 @@ class BookFileNameTemplate():
 
             six += 1 # проходим мимо %
             if six >= slen:
-                raise ValueError(u'Ошибка в шаблоне: преждевременное завершение шаблона (нет имени поля)')
+                raise ValueError(u'Ошибка в шаблоне (символ %d): преждевременное завершение шаблона (нет имени поля)' % six)
 
             tv = ts[six]
             six += 1
 
             if tv not in self.TEMPLATE_FIELDS:
-                raise ValueError(u'Ошибка в шаблоне: неподдерживаемое имя поля - "%s"' % tv)
+                raise ValueError(u'Ошибка в шаблоне (символ %d): неподдерживаемое имя поля - "%s"' % (six, tv))
 
             self.template.append(self.TEMPLATE_FIELDS[tv].fldid)
 
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     library = Library()
     fill_fake_library(library)
 
-    template = BookFileNameTemplate(library, '%a/%t %r')
+    template = BookFileNameTemplate(library, '%a/%t %z%r')
     for bid in library.books:
         bnfo = library.books[bid]
         #print(bnfo)

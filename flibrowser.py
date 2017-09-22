@@ -30,7 +30,7 @@ import os.path, sys
 
 
 # для отладки, чтоб не грузить БД в 100500 книжек (которой может и нет вовсе на момент отладки)
-USEFAKELIBRARY = True
+USEFAKELIBRARY = False
 
 
 # нашевсё
@@ -380,6 +380,8 @@ class MainWnd():
         self.save_book_fn_templates()
 
     def load_book_fn_templates(self):
+        self.templatesHashes.clear()
+
         if self.templatesFileName and os.path.exists(self.templatesFileName):
             self.bookfntemplatecbox.remove_all()
 
@@ -392,6 +394,7 @@ class MainWnd():
                             continue
 
                         self.bookfntemplatecbox.append_text(s)
+                        self.templatesHashes.add(hash(s))
 
     def save_book_fn_templates(self):
         def __save_template_str(model, path, itr, fobj):
@@ -404,10 +407,36 @@ class MainWnd():
             with open(self.templatesFileName, 'w+', encoding=IOENCODING) as f:
                 self.bookfntemplatecbox.get_model().foreach(__save_template_str, f)
 
-    def append_book_fn_template(self, tplstr):
-        # внимание! проверку на повтор присобачу потом!
-        if tplstr:
-            self.bookfntemplatecbox.append_text(tplstr)
+    def book_fn_template_help(self):
+        msg_dialog(self.window, u'Шаблон имени файла', BookFileNameTemplate.TEMPLATE_HELP, msgtype=Gtk.MessageType.INFO)
+
+    def book_fn_template_add(self):
+        tplstr = self.bookfntemplate.get_text().strip()
+        tplstrhash = hash(tplstr)
+
+        if tplstr and tplstrhash not in self.templatesHashes:
+            try:
+                tpl = BookFileNameTemplate(library, tplstr)
+
+                self.templatesHashes.add(tplstrhash)
+
+                self.bookfntemplatecbox.append_text(tplstr)
+            except Exception as ex:
+                msg_dialog(self.window, 'Ошибка в шаблоне', str(ex), Gtk.MessageType.ERROR)
+
+    def book_fn_template_delete(self):
+        itr = self.bookfntemplatecbox.get_active_iter()
+        if itr is not None:
+            store = self.bookfntemplatecbox.get_model()
+
+            tplstr = store.get_value(itr, 0)
+            tplstrhash = hash(tplstr)
+
+            if tplstrhash in self.templatesHashes:
+                self.templatesHashes.remove(tplstrhash)
+
+            store.remove(itr)
+            self.bookfntemplate.set_text('')
 
     def destroy(self, widget, data=None):
         self.update_ui_state(ctrls=True) # только состояние кнопок - потому что размер окна здесь уже неправильный
@@ -628,11 +657,7 @@ class MainWnd():
             ei = Gtk.MessageType.WARNING
             try:
                 #raise KeyError, u'проверка'
-                tplstr = self.bookfntemplate.get_text().strip()
-                fntemplate = BookFileNameTemplate(library, tplstr)
-                # шаблонилка не рухнула, шаблон не пустой и правильный - добавляем его в комбобокс
-                if tplstr:
-                    self.append_book_fn_template(tplstr)
+                fntemplate = BookFileNameTemplate(library, self.bookfntemplate.get_text().strip())
 
                 pkzip = self.bookunpzipchk.get_active()
 
@@ -802,14 +827,15 @@ class MainWnd():
     def chkusedatefilter_toggled(self):
         self.maxdatechooser.set_sensitive(self.mindatechooser.checkbox.get_active())
 
-    def bookfname_template_help(self, btn, data=None):
-        msg_dialog(self.window, u'Шаблон имени файла', BookFileNameTemplate.TEMPLATE_HELP, msgtype=Gtk.MessageType.INFO)
-
     def __init__(self):
         """Инициализация междумордия и прочего"""
 
         self.uistate = MainWndSettings(os.path.join(library.cfgDir, u'uistate'))
+
+        # шаблоны имен файлов
         self.templatesFileName = os.path.join(library.cfgDir, u'templates')
+        self.templatesHashes = set()
+        #
 
         self.window = Gtk.ApplicationWindow(Gtk.WindowType.TOPLEVEL)
         #self.window.connect('delete_event', self.delete_event)
@@ -1121,15 +1147,17 @@ class MainWnd():
         self.bookfntemplate.set_width_chars(25)
         bookpathbox.pack_start(self.bookfntemplatecbox, False, False, 0)
 
-        btnbfntplovr = Gtk.Button('...')
-        bookpathbox.pack_start(btnbfntplovr, False, False, 0)
+        def addtoolbtn(box, iconname, onclick):
+            btn = Gtk.Button.new_from_icon_name(iconname, Gtk.IconSize.SMALL_TOOLBAR)
+            btn.connect('clicked', lambda b: onclick())
+            box.pack_start(btn, False, False, 0)
+            return btn
 
-        self.bookfntemplateovr = Gtk.Overlay()
-        self.bookfntemplateovr.add_overlay(btnbfntplovr)
+        addtoolbtn(bookpathbox, Gtk.STOCK_ADD, self.book_fn_template_add)
 
-        btnbfntemplatehelp = Gtk.Button(u'?')
-        btnbfntemplatehelp.connect('clicked', self.bookfname_template_help)
-        bookpathbox.pack_start(btnbfntemplatehelp, False, False, 0)
+        addtoolbtn(bookpathbox, Gtk.STOCK_DELETE, self.book_fn_template_delete)
+
+        addtoolbtn(bookpathbox, Gtk.STOCK_HELP, self.book_fn_template_help)
 
         self.bookunpzipchk = Gtk.CheckButton(u'и сжать ZIP', False)
         self.bookunpzipchk.set_active(False)
