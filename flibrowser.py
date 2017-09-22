@@ -22,6 +22,7 @@ from fbcommon import *
 from gi.repository import Gtk, Gdk, GObject, Pango, GLib
 from gi.repository.GdkPixbuf import Pixbuf
 from flibcrutch import *
+from fbtemplates import *
 from fbsettings import SettingsDialog, InitialSettingsDialog
 import fbabout
 import re, random
@@ -29,7 +30,7 @@ import os.path, sys
 
 
 # для отладки, чтоб не грузить БД в 100500 книжек (которой может и нет вовсе на момент отладки)
-USEFAKELIBRARY = False
+USEFAKELIBRARY = True
 
 
 # нашевсё
@@ -37,28 +38,10 @@ library = Library()
 
 
 if USEFAKELIBRARY:
+    from fbfakelib import fill_fake_library
     print(u'Вынимательно! Отладка с фальшивой библиотекой!')
 
-    library.series = {1:u'Всё для дураков'}
-    library.bundles = {1:u'1-100.zip', 2:u'101-200.zip'}
-    library.tags = {1:u'бред', 2:u'шиза', 3:u'глюки'}
-
-    ddate = datetime.date(2017, 11, 7)
-    ddate2 = datetime.date(2000, 1, 1)
-
-    library.books = {1:BookInfo(1, 1, u'1.fb2.zip', u'Методы и приёмы освежевания летающих объектов', 1, 1, u'fb2', 666, u'ru', set((1,)), 1, ddate),
-        2:BookInfo(2, 1, u'2.fb2', u'33 способа проедания насквозь', 1, 2, u'fb2', 666, u'ru', set((1, 2)), 1, ddate),
-        3:BookInfo(3, 2, u'3.fb2', u'Венерианские ханурики', 0, 0, u'fb2', 666, u'ru', set((1,)), 1, ddate2),
-        4:BookInfo(4, 2, u'4.fb2', u'Вино из мухоморчиков', 0, 0, u'fb2', 666, u'ru', set((1, 3)), 2, ddate2),
-        5:BookInfo(5, 2, u'5.fb2', u'Были они бледные и косоглазые', 0, 0, u'fb2', 666, u'ru', set((1,)), 1, ddate2),
-        6:BookInfo(6, 3, u'6.fb2', u'Автобиография анацефала', 0, 0, u'fb2', 666, u'ru', set((2,)), 2, ddate),
-        7:BookInfo(7, 4, u'7.fb2', u'Как йа был фффтумани', 0, 0, u'fb2', 666, u'ru', set((3,)), 2, ddate),
-        }
-    library.authors = {1:AuthorInfo(1, u'Говнищер Мухаммед Чжанович', set((1, 2))),
-        2:AuthorInfo(2, u'Брэдбери Рэй', set((3, 4, 5))),
-        3:AuthorInfo(3, u'Франсиско-Каэтано-Августин-Лусия-и-Мануэль-и-Хосефа-и-Мигель-Лука-Карлос-Педро Тринидад', set((6,))),
-        4:AuthorInfo(4, u'Больной Йожыг', set((7,))),
-        }
+    fill_fake_library(library)
 
 
 DATE_FORMAT = u'%x'
@@ -281,7 +264,6 @@ class DateChooser():
         self.chooserwnd.show_all()
 
 
-
 class MainWndSettings(Settings):
     WINDOW_X = 'window.x'
     WINDOW_Y = 'window.y'
@@ -355,6 +337,9 @@ class MainWnd():
         for fevname in self.filters.keys():
             self.filters[fevname].chkisregexp.set_active(self.uistate.get_value(self.uistate.FILTER_IS_REGEXP % fevname))
 
+        # загружаем шаблоны имени файла
+        self.load_book_fn_templates()
+
     def update_ui_state(self, pos=False, ctrls=False):
         """Запоминает текущее состояние окна и/или виджетов.
         pos     - bool  запомнить размер и положение,
@@ -388,6 +373,41 @@ class MainWnd():
         #print(self.uistate.cfg)
 
         self.uistate.save()
+
+        #
+        # сохраняем шаблоны имени файла
+        #
+        self.save_book_fn_templates()
+
+    def load_book_fn_templates(self):
+        if self.templatesFileName and os.path.exists(self.templatesFileName):
+            self.bookfntemplatecbox.remove_all()
+
+            with open(self.templatesFileName, 'r', encoding=IOENCODING) as f:
+                for ixl, s in enumerate(f, 1):
+                    s = s.strip()
+                    if s:
+                        if len(s) > BookFileNameTemplate.MAX_LENGTH:
+                            print(u'Слишком длинная строка #%d в файле "%s", пропускаем...' % (ixl, self.templatesFileName))
+                            continue
+
+                        self.bookfntemplatecbox.append_text(s)
+
+    def save_book_fn_templates(self):
+        def __save_template_str(model, path, itr, fobj):
+            s = model.get(itr, 0)
+            fobj.write(u'%s\n' % s[0])
+
+            return False
+
+        if self.templatesFileName:
+            with open(self.templatesFileName, 'w+', encoding=IOENCODING) as f:
+                self.bookfntemplatecbox.get_model().foreach(__save_template_str, f)
+
+    def append_book_fn_template(self, tplstr):
+        # внимание! проверку на повтор присобачу потом!
+        if tplstr:
+            self.bookfntemplatecbox.append_text(tplstr)
 
     def destroy(self, widget, data=None):
         self.update_ui_state(ctrls=True) # только состояние кнопок - потому что размер окна здесь уже неправильный
@@ -608,7 +628,11 @@ class MainWnd():
             ei = Gtk.MessageType.WARNING
             try:
                 #raise KeyError, u'проверка'
-                fntemplate = BookFileNameTemplate(library, self.bookfntemplate.get_text())
+                tplstr = self.bookfntemplate.get_text().strip()
+                fntemplate = BookFileNameTemplate(library, tplstr)
+                # шаблонилка не рухнула, шаблон не пустой и правильный - добавляем его в комбобокс
+                if tplstr:
+                    self.append_book_fn_template(tplstr)
 
                 pkzip = self.bookunpzipchk.get_active()
 
@@ -785,6 +809,7 @@ class MainWnd():
         """Инициализация междумордия и прочего"""
 
         self.uistate = MainWndSettings(os.path.join(library.cfgDir, u'uistate'))
+        self.templatesFileName = os.path.join(library.cfgDir, u'templates')
 
         self.window = Gtk.ApplicationWindow(Gtk.WindowType.TOPLEVEL)
         #self.window.connect('delete_event', self.delete_event)
@@ -1083,14 +1108,18 @@ class MainWnd():
         self.txtextractpath.set_text(library.extractDir)
         bookpathbox.pack_start(self.txtextractpath, True, True, 0)
 
-        # book file name template
+        #
+        # шаблон имени файла
+        #
         self.bnftemplate = None
 
         bookpathbox.pack_start(Gtk.Label(u', назвав файл по шаблону'), False, False, 0)
 
-        self.bookfntemplate = Gtk.Entry()
+        self.bookfntemplatecbox = Gtk.ComboBoxText.new_with_entry()
+        self.bookfntemplate = self.bookfntemplatecbox.get_child()
+        self.bookfntemplate.set_max_length(BookFileNameTemplate.MAX_LENGTH)
         self.bookfntemplate.set_width_chars(25)
-        bookpathbox.pack_start(self.bookfntemplate, False, False, 0)
+        bookpathbox.pack_start(self.bookfntemplatecbox, False, False, 0)
 
         btnbfntemplatehelp = Gtk.Button(u'?')
         btnbfntemplatehelp.connect('clicked', self.bookfname_template_help)
@@ -1142,6 +1171,7 @@ def process_command_line():
 #
 #
 def main():
+    print('%s %s' % (TITLE, VERSION))
     process_command_line()
 
     loadSettingsError = library.load_settings()

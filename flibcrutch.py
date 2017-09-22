@@ -91,32 +91,41 @@ def comma_separated_str_to_set(s):
 
 
 class BookInfo():
+    """ Класс, хранящий информацию о книге.
+
+        bookid    - целое; id книги в БД Flibusta/LibRusEc/совместимых
+        authorid  - целое; id автора (тут у нас группа авторов пока что считается за одного)
+        author    - ссылка на экземпляр AuthorInfo
+        filename  - строка; имя файла книги, обычно "bookid.fb2"
+        title     - строка; название книги
+        series    - целое; серия книг (если есть). хранится как хэш от нормализованного названия, сами названия - в словаре Library.series
+        serno     - целое; номер в серии (еслиесть)
+        format    - строка; формат файла книги (он же расширение файла)
+        fsize     - целое; размер файла книги
+        lang      - строка; язык книги
+        tags      - множество; содержит id's тэгов
+        bundle    - целое; хэш нормализованного названия файла архива с книгами, сами названия - в словаре Library.bundles
+        date      - datetime.date"""
+
+    def __str__(self):
+        """Для отладки"""
+
+        return 'bookid=%d, authorid=%d, author=%s, filename="%s", title="%s", series=%d, serno=%d, format=%s, fsize=%d, lang="%s", tags=(%s), bundle=%d, date=%s' % (self.bookid,
+            self.authorid, self.author, self.filename, self.title, self.series, self.serno, self.format, self.fsize, self.lang, self.tags, self.bundle, self.date)
+
     def __init__(self, bookid, authorid, filename, title, series, serno, _format, fsize, lang, tags, bundle, date):
-        # bookid    - целое; id книги в БД Flibusta/LibRusEc/совместимых
         self.bookid = bookid
-        # authorid  - целое; id автора (тут у нас группа авторов пока что считается за одного)
         self.authorid = authorid
-        # ссылка на экземпляр AuthorInfo
         self.author = None
-        # filename  - строка; имя файла книги, обычно "bookid.fb2"
         self.filename = filename
-        # title     - строка; название книги
         self.title = title
-        # series    - целое; серия книг (если есть). хранится как хэш от нормализованного названия, сами названия - в словаре Library.series
         self.series = series
-        # serno     - целое; номер в серии (еслиесть)
         self.serno = serno
-        # format    - строка; формат файла книги (он же расширение файла)
         self.format = _format
-        # fsize     - целое; размер файла книги
         self.fsize = fsize
-        # lang      - строка; язык книги
         self.lang = lang
-        # tags      - множество; содержит id's тэгов
         self.tags = tags
-        # bundle    - целое; хэш нормализованного названия файла архива с книгами, сами названия - в словаре Library.bundles
         self.bundle = bundle
-        # date      - datetime.date
         self.date   = date
 
 
@@ -130,6 +139,12 @@ class AuthorInfo():
         self.aname = aname
         self.shortname = self.make_shortname(aname)
         self.books = books
+
+    def __str__(self):
+        """Для отладки"""
+
+        return 'aid=%d, aname="%s", shortname="%s", books=(%s)' % (self.aid,
+            self.aname, self.shortname, str(self.books))
 
     @staticmethod
     def make_shortname(aname):
@@ -161,118 +176,6 @@ def inpx_date_to_date(s, defval):
         return d.date()
     except ValueError:
         return defval
-
-
-class BookFileNameTemplate():
-    VALID_FN_CHARS = ' ().,;!-_#@' + os.sep
-
-    TF_AUTHOR, TF_BOOKID, TF_FILENAME, TF_TITLE, TF_SERNAME, TF_SERNO = range(6)
-
-    __tpfld = namedtuple('__tpfld', 'description fldid')
-
-    TEMPLATE_FIELDS = {'a': __tpfld(u'имя автора', TF_AUTHOR),
-        'i': __tpfld(u'идентификатор книги', TF_BOOKID),
-        'f': __tpfld(u'оригинальное имя файла', TF_FILENAME),
-        't': __tpfld(u'название книги', TF_TITLE),
-        'n': __tpfld(u'номер в серии', TF_SERNO),
-        's': __tpfld(u'название серии', TF_SERNAME)}
-
-    def __init__(self, library, ts):
-        """Разбирает строку шаблона ts.
-        Строка может быть пустой (см. описание ф-и get_book_fname).
-        Шаблон складывается в поле template.
-        library - экземпляр Library.
-        В случае ошибок в формате шаблона генерируется исключение ValueError."""
-
-        self.library = library
-
-        ts = ts.strip() # пробелы в начале и в конце всегда убираем!
-        self.templatestr = ts
-
-        if not self.templatestr:
-            # раз шаблон пустой - делаем из него умолчальный
-            self.template = [self.TF_BOOKID, self.TF_TITLE]
-            return
-
-        self.template = []
-        # список элементов шаблона
-        # может содержать строки (которые потом используются "как есть"),
-        # или цельночисленные значения TF_xxx
-
-        slen = len(ts)
-        six = 0
-
-        while six < slen:
-            sstart = six
-            while (six < slen) and (ts[six] != '%'): six += 1
-
-            if six > sstart:
-                self.template.append(ts[sstart:six])
-
-            if six >= slen:
-                break
-
-            six += 1 # проходим мимо %
-            if six >= slen:
-                raise ValueError(u'Ошибка в шаблоне: преждевременное завершение шаблона (нет имени поля)')
-
-            tv = ts[six]
-            six += 1
-
-            if tv not in self.TEMPLATE_FIELDS:
-                raise ValueError(u'Ошибка в шаблоне: неподдерживаемое имя поля - "%s"' % tv)
-
-            self.template.append(self.TEMPLATE_FIELDS[tv].fldid)
-
-    def get_book_fname(self, bnfo):
-        """Генерирует не содержащее недопустимых для ФС символов имя файла
-        вида 'bookid title (cycle - no).ext' из полей bnfo (экземпляра BookInfo).
-        Имя может содержать разделители путей (для подкаталогов).
-        Возвращает кортеж из двух элементов - пути и собственно имени файла.
-        Расширение добавляется всегда (из поля bnfo.format).
-        Если шаблон (self.template) пустой - возвращаем "стандартное" имя файла
-        из bookid и format.
-        Путь может быть пустой строкой, если шаблон не содержал
-        разделителей путей."""
-
-        if not self.template:
-            return ('', u'%s.%s' % (bnfo.filename, bnfo.format))
-
-        fname = []
-
-        for tfld in self.template:
-            if isinstance(tfld, str):
-                fname.append(tfld)
-            # иначе считаем, что шаблон правильно сгенерен конструктором, и значение цельночисленное
-            elif tfld == self.TF_AUTHOR:
-                fname.append(bnfo.author.shortname)
-            elif tfld == self.TF_BOOKID:
-                fname.append(str(bnfo.bookid))
-            elif tfld == self.TF_FILENAME:
-                fname.append(bnfo.filename)
-            elif tfld == self.TF_TITLE:
-                fname.append(bnfo.title)
-            elif tfld == self.TF_SERNAME:
-                fname.append('' if not bnfo.series else self.library.series[bnfo.series])
-            elif tfld == self.TF_SERNO:
-                fname.append(str(bnfo.serno) if bnfo.series and bnfo.serno else '')
-
-        fname.append('.%s' % bnfo.format) # расширение файла добавляем всегда
-
-        # выкидываем недопустимые для имен файла символы
-        return os.path.split(u''.join(filter(lambda c: c.isalnum() or c in self.VALID_FN_CHARS, ''.join(fname))))
-
-
-BookFileNameTemplate.TEMPLATE_HELP = u'''Шаблон - строка с полями вида %%N.
-Поддерживаются поля:
-%s
-
-В случае пустого шаблона будет использоваться оригинальное имя файла.
-Шаблон может содержать символы "%s" - в этом случае будут создаваться подкаталоги.''' % \
-(u'\n'.join(map(lambda k: u'%s\t- %s' % (k, BookFileNameTemplate.TEMPLATE_FIELDS[k].description), sorted(BookFileNameTemplate.TEMPLATE_FIELDS.keys()))),
-# ибо непосредственно в описании класса лямбда с какого-то хрена не видит ранее заданные переменные класса,
-# а создавать такой хелповник динамически вызовом метода класса - не интересно, т.к. он нужен до создания экземпляра класса
-os.sep)
 
 
 class Library():
@@ -662,9 +565,12 @@ class Library():
 
                                         if dstsubdir and dstsubdir not in createddirs:
                                             if not os.path.exists(dstfpath):
+                                                print('создаю каталог "%s"' % dstsubdir)
                                                 os.makedirs(dstfpath)
+
                                             createddirs.add(dstsubdir)
 
+                                        print('создаю файл файл "%s"' % dstfname)
                                         dstfpath = os.path.join(dstfpath, dstfname)
 
                                         with open(dstfpath, 'wb+') as dstf:
