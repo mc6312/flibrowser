@@ -30,18 +30,13 @@ import os.path, sys
 
 
 # для отладки, чтоб не грузить БД в 100500 книжек (которой может и нет вовсе на момент отладки)
+from fbfakelib import fill_fake_library
+
 USEFAKELIBRARY = False
 
 
 # нашевсё
 library = Library()
-
-
-if USEFAKELIBRARY:
-    from fbfakelib import fill_fake_library
-    print(u'Вынимательно! Отладка с фальшивой библиотекой!')
-
-    fill_fake_library(library)
 
 
 DATE_FORMAT = u'%x'
@@ -322,12 +317,8 @@ class MainWnd():
 
         self.window.resize(self.uistate.cfg[self.uistate.WINDOW_W], self.uistate.get_value(self.uistate.WINDOW_H))
 
-        #if self.uistate.cfg[self.uistate.WINDOW_MAX]:
-        #    self.window.maximize()
-        """Так как window.is_maximized() возвращает прошлогоднее значение, а не актуальное,
-        то хрен его знает, как _правильно_ сохранять состояние развёрнутости окна.
-        А потому - при загрузке это значение пока не используем.
-        Кому сильно надо - окошко руками отмасштабирует."""
+        if self.uistate.cfg[self.uistate.WINDOW_MAX]:
+            self.window.maximize()
 
         # extract controls
         self.bookfntemplate.set_text(self.uistate.get_value(self.uistate.EXTRACT_FNAME_TEMPLATE))
@@ -347,18 +338,18 @@ class MainWnd():
 
         # window pos/size
         if pos:
-            wm = self.window.is_maximized()
-            self.uistate.cfg[self.uistate.WINDOW_MAX] = wm
-            # состояние maximized сохраняем, но не используем. см. load_ui_state()
+            # состояние maximized сохраняется не отсюда, а из wnd_state_event()
+            # размер/положение сохраняем не здесь, а в wnd_configure_event()
 
-            #if not wm: # см. там же
-            wx, wy = self.window.get_position()
-            self.uistate.cfg[self.uistate.WINDOW_X] = wx
-            self.uistate.cfg[self.uistate.WINDOW_Y] = wy
+            #if not self.uistate.cfg[self.uistate.WINDOW_MAX]:
+            #    wx, wy = self.window.get_position()
+            #    self.uistate.cfg[self.uistate.WINDOW_X] = wx
+            #    self.uistate.cfg[self.uistate.WINDOW_Y] = wy
 
-            ww, wh = self.window.get_size()
-            self.uistate.cfg[self.uistate.WINDOW_W] = ww
-            self.uistate.cfg[self.uistate.WINDOW_H] = wh
+            #    ww, wh = self.window.get_size()
+            #    self.uistate.cfg[self.uistate.WINDOW_W] = ww
+            #    self.uistate.cfg[self.uistate.WINDOW_H] = wh
+            pass
 
         if ctrls:
             # extract controls
@@ -741,6 +732,8 @@ class MainWnd():
                 #raise KeyError, u'проверка'
                 if not USEFAKELIBRARY:
                     library.load(self.progress_callback)
+                else:
+                    fill_fake_library(library)
 
                 self.labbooktotal.set_text(u'(всего в библиотеке - %d)' % len(library.books))
 
@@ -752,10 +745,34 @@ class MainWnd():
         finally:
             self.end_task(em)
 
+    def wnd_size_allocate(self, wnd, rect):
+        """Сменился размер окна (координаты не получаем)"""
+
+        return # не используется
+
+        #print('size-allocate: w=%d, h=%d, m=%s' % (rect.width, rect.height, self.uistate.cfg[self.uistate.WINDOW_MAX]))
+        if not self.uistate.cfg[self.uistate.WINDOW_MAX]:
+            self.uistate.cfg[self.uistate.WINDOW_W] = rect.width
+            self.uistate.cfg[self.uistate.WINDOW_H] = rect.height
+
     def wnd_configure_event(self, wnd, event):
         """Сменились размер/положение окна"""
 
-        self.update_ui_state(pos=True)
+        # нене, нафиг
+        #self.update_ui_state(pos=True)
+
+        if not self.uistate.cfg[self.uistate.WINDOW_MAX]:
+            self.uistate.cfg[self.uistate.WINDOW_X] = event.x
+            self.uistate.cfg[self.uistate.WINDOW_Y] = event.y
+
+            self.uistate.cfg[self.uistate.WINDOW_W] = event.width
+            self.uistate.cfg[self.uistate.WINDOW_H] = event.height
+
+    def wnd_state_event(self, widget, event):
+        """Сменилось состояние окна"""
+
+        self.uistate.cfg[self.uistate.WINDOW_MAX] = bool(event.new_window_state & Gdk.WindowState.MAXIMIZED)
+        #print(self.uistate.cfg[self.uistate.WINDOW_MAX])
 
     def about_dialog(self, data=None):
         self.dlgabout.run()
@@ -764,19 +781,6 @@ class MainWnd():
         if self.dlgsettings.run():
             self.filter_reset()
             self.library_load()
-
-    def setup_window_icon(self):
-        LOGO_SIZE = 128
-
-        iconpath = os.path.join(library.appDir, u'flibrowser.svg')
-
-        try:
-            self.window.set_icon_from_file(iconpath)
-            self.logotype = Pixbuf.new_from_file_at_size(iconpath, LOGO_SIZE, LOGO_SIZE)
-        except GLib.GError:
-            print(u'Не удалось загрузить файл изображения "%s"' % iconpath)
-            self.window.set_icon_name('gtk-find')
-            self.logotype = self.window.render_icon_pixbuf(Gtk.STOCK_FIND, Gtk.IconSize.DIALOG)
 
     def blv_mouse_moved(self, lv, event):
         r = self.booklistview.get_path_at_pos(event.x, event.y)
@@ -840,23 +844,24 @@ class MainWnd():
         self.window = Gtk.ApplicationWindow(Gtk.WindowType.TOPLEVEL)
         #self.window.connect('delete_event', self.delete_event)
         self.window.connect('configure_event', self.wnd_configure_event)
+        self.window.connect('window_state_event', self.wnd_state_event)
+        self.window.connect('size-allocate', self.wnd_size_allocate)
         self.window.connect('destroy', self.destroy)
 
         self.window.set_title(u'%s v%s%s' % (TITLE, VERSION,
-            u' [Внимание - отладочная версия]' if USEFAKELIBRARY else ''))
-
-        self.logotype = None
-        self.setup_window_icon()
+            u' [Внимание - отладка с имитационной библиотекой]' if USEFAKELIBRARY else ''))
 
         self.window.set_size_request(1024, 768)
         self.window.set_border_width(WIDGET_SPACING)
 
         #
         #
-        self.dlgabout = fbabout.AboutDialog(self.window, library, self.logotype)
+        self.dlgabout = fbabout.AboutDialog(self.window, library)
         self.dlgsettings = SettingsDialog(self.window, library)
         #
         #
+
+        self.window.set_icon(self.dlgabout.windowicon)
 
         rootvbox = Gtk.VBox(spacing=WIDGET_SPACING)
         self.window.add(rootvbox)
@@ -1207,6 +1212,9 @@ def process_command_line():
 def main():
     print('%s %s' % (TITLE, VERSION))
     process_command_line()
+
+    if USEFAKELIBRARY:
+        print(u'Вынимательно! Отладка с имитационной библиотекой!')
 
     loadSettingsError = library.load_settings()
 

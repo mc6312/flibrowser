@@ -17,19 +17,41 @@
     along with Flibrowser.  If not, see <http://www.gnu.org/licenses/>."""
 
 
-from gi.repository import Gtk
-from gi.repository.GdkPixbuf import Pixbuf
-
 import os.path
 
 from fbcommon import *
 
+from gi.repository import Gtk, GLib
+from gi.repository.GdkPixbuf import Pixbuf
+
+
+LOGO_SIZE = 256
+
 
 class AboutDialog():
-    def __init__(self, parentwnd, library, logotype):
+    def __init__(self, parentwnd, library):
+        """Создание и первоначальная настройка.
+
+        parentwnd   - экземпляр Gtk.Window или None
+        library     - экземпляр flibcrutch.Library"""
+
+        iconpath = os.path.join(library.appDir, u'flibrowser.svg')
+
         self.dlgabout = Gtk.AboutDialog(parent=parentwnd)
 
-        self.dlgabout.set_size_request(-1, 400)
+        try:
+            logotype = Pixbuf.new_from_file_at_size(iconpath, LOGO_SIZE, LOGO_SIZE)
+
+            r = Gtk.IconSize.lookup(Gtk.IconSize.DIALOG)
+            self.windowicon = Pixbuf.new_from_file_at_size(iconpath, r.width, r.height)
+        except GLib.GError:
+            print(u'Не удалось загрузить файл изображения "%s"' % iconpath)
+            logotype = self.dlgabout.render_icon_pixbuf('gtk-find', Gtk.IconSize.DIALOG)
+            self.windowicon = logotype
+
+        self.dlgabout.set_icon(self.windowicon)
+
+        self.dlgabout.set_size_request(-1, 600)
         self.dlgabout.set_copyright(COPYRIGHT)
         self.dlgabout.set_version(VERSION)
         self.dlgabout.set_program_name(TITLE)
@@ -47,7 +69,7 @@ class AboutDialog():
             slicense = None
 
         self.dlgabout.set_license_type(Gtk.License.GPL_3_0_ONLY)
-        self.dlgabout.set_license(slicense if slicense else u'Файл с текстом GPL не найден. Ищите на http://www.fsf.org/')
+        self.dlgabout.set_license(slicense if slicense else u'Файл с текстом GPL не найден.\nЧитайте https://www.gnu.org/licenses/gpl.html')
 
         self.dlgabout.add_credit_section(u'Сляпано во славу', [u'Азатота', u'Йог-Сотота', u'Ктулху', u'Шаб-Ниггурат', u'и прочей кодлы Великих Древних'])
         self.dlgabout.add_credit_section(u'Особая благодарность', [u'Левой ноге автора'])
@@ -59,12 +81,15 @@ class AboutDialog():
 
 
 def main():
+    print('[%s test]' % __file__)
     from flibcrutch import Library
     library = Library()
-    if not library.load_settings():
+    er = library.load_settings()
+    if er:
+        print('load settings:', er)
         return
 
-    AboutDialog(None, library, None).run()
+    AboutDialog(None, library).run()
 
 if __name__ == '__main__':
     exit(main())
