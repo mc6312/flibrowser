@@ -42,8 +42,11 @@ class AboutDialog():
         try:
             logotype = Pixbuf.new_from_file_at_size(iconpath, LOGO_SIZE, LOGO_SIZE)
 
-            r = Gtk.IconSize.lookup(Gtk.IconSize.DIALOG)
-            self.windowicon = Pixbuf.new_from_file_at_size(iconpath, r.width, r.height)
+            rok, rw, rh = Gtk.IconSize.lookup(Gtk.IconSize.DIALOG)
+            # проверять rok == True не буду - если ф-я на стандартное значение
+            # не вернет соотв. размер, то поломат либо gtk, либо gobject, и пошло всё в жопу
+
+            self.windowicon = Pixbuf.new_from_file_at_size(iconpath, rw, rh)
         except GLib.GError:
             print(u'Не удалось загрузить файл изображения "%s"' % iconpath)
             logotype = self.dlgabout.render_icon_pixbuf('gtk-find', Gtk.IconSize.DIALOG)
