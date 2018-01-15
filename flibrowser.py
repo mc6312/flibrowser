@@ -1158,11 +1158,11 @@ class MainWnd():
             box.pack_start(btn, False, False, 0)
             return btn
 
-        addtoolbtn(bookpathbox, Gtk.STOCK_ADD, self.book_fn_template_add)
+        addtoolbtn(bookpathbox, 'list-add', self.book_fn_template_add)
 
-        addtoolbtn(bookpathbox, Gtk.STOCK_DELETE, self.book_fn_template_delete)
+        addtoolbtn(bookpathbox, 'edit-delete', self.book_fn_template_delete)
 
-        addtoolbtn(bookpathbox, Gtk.STOCK_HELP, self.book_fn_template_help)
+        addtoolbtn(bookpathbox, 'help-browser', self.book_fn_template_help)
 
         self.bookunpzipchk = Gtk.CheckButton(u'и сжать ZIP', False)
         self.bookunpzipchk.set_active(False)
