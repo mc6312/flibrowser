@@ -285,6 +285,9 @@ class Library():
 
         return u', '.join(sorted(map(self.tag_display_name, bnfo.tags)))
 
+    def __print_stat(self, what, value):
+        print('  {:<24}{}'.format('%s:' % what, value))
+
     def parse_inpx_file(self, fpath, callback=None):
         """Разбор файла .inpx и загрузка его в словарь self.authors.
         callback(fraction) - (если не None) функция для отображения прогресса,
@@ -308,7 +311,7 @@ class Library():
                             indexFiles.append((bundle, nfo.filename))
 
                 numindexes = len(indexFiles)
-                print(u'  индексных файлов: %d' % numindexes)
+                self.__print_stat('индексных файлов', numindexes)
 
                 # ...потому что дальше нужно работать с _отсортированным_ списком файлов: новое затирает старое
 
@@ -327,7 +330,7 @@ class Library():
                                 srcrec = recstr.decode(INPX_INDEX_ENCODING, 'replace').split(INPX_REC_SEPARATOR)
 
                                 if not srcrec[INPX_REC_LIBID].isdigit():
-                                    raise ValueError(u'Book id is invalid: "%s"' % srcrec[INPX_REC_LIBID])
+                                    raise ValueError(u'Неправильное значение поля LIBID: "%s"' % srcrec[INPX_REC_LIBID])
 
                                 bookid = int(srcrec[INPX_REC_LIBID])
 
@@ -401,21 +404,24 @@ class Library():
 
                             except Exception as ex:
                                 # вот ниибет, что квыво
-                                raise Exception(u'Error in record #%d of file "%s" - %s\n* record: %s' % (recix + 1, fname, str(ex), u';'.join(srcrec)))
+                                raise Exception(u'Ошибка в записи #%d файла "%s" - %s\n* запись: %s' % (recix + 1, fname, str(ex), u';'.join(srcrec)))
                     if callback is not None:
                         callback(float(ixindex) / numindexes)
         except Exception as ex:
-            raise Exception(u'Error parsing file "%s",\n%s' % (fpath, str(ex)))
+            raise Exception(u'Ошибка обработки файла "%s",\n%s' % (fpath, str(ex)))
 
         included = len(self.books)
 
-        print(u'  обработано записей: %d\n  отброшено: %d\n  доступно: %d' % (included+rejected, rejected, included))
+        self.__print_stat('обработано записей', included + rejected)
+        self.__print_stat('отброшено', rejected)
+        self.__print_stat('доступно', included)
+        self.__print_stat('авторов', len(self.authors))
 
     def print_exec_time(self, todo, *arg):
         t0 = time()
         r = todo(*arg)
         t0 = time() - t0
-        print(u'  время работы: %.1f сек' % t0)
+        self.__print_stat('время работы', '%.1f сек' % t0)
         return r
 
     def tag_display_name(self, tid):
@@ -472,7 +478,7 @@ class Library():
         if self.dataDirectory:
             print(u'Загрузка названий жанров...')
             self.load_genre_names()
-            print(u'  жанров: %d' % len(self.genrenames))
+            self.__print_stat('жанров', len(self.genrenames))
 
         self.authors.clear()
 
@@ -767,14 +773,14 @@ class Library():
 
 # debug
 def main():
-    print(AuthorInfo.make_shortname('Иванов Иван Иваныч, Сидоров Сидор Сидорыч'))
+    """print(AuthorInfo.make_shortname('Иванов Иван Иваныч, Сидоров Сидор Сидорыч'))
     print(AuthorInfo.make_shortname('Петров Пётр Петрович, Сергеев Сергей Сергеич, Климов Клим Климыч, Чон Ду Хван'))
     print(AuthorInfo.make_shortname('Петров-Задерищенский Навуходоносор Сарданапалович, Сергеев-Оглы Нурмухаммед Кельдыбабаевич, Климов Клим Климыч, Чон Ду Хван'))
 
     return
 
     print(BookFileNameTemplate.TEMPLATE_HELP)
-    return
+    return"""
 
     library = Library()
     lse = library.load_settings()
@@ -797,23 +803,6 @@ def main():
     print('  loaded')
 
     #print(library.tags)
-
-    t = BookFileNameTemplate(library, '%a/%i - %s (%n) - %t (shit)')
-    #print(t.template)
-
-    print('* template test *')
-
-    maxk = 30
-    for bookid in library.books:
-        bnfo = library.books[bookid]
-
-        print('name:', t.get_book_fname(bnfo))
-
-        maxk -= 1
-        if maxk <= 0:
-            break
-
-    return #!!!
 
     print(u'* поиск')
     t0 = time()
