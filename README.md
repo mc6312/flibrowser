@@ -73,11 +73,12 @@
 Под Windows всё сложнее:
 1. С http://python.org берется установщик Python 3.4.x (т.к. на момент написания
    этого README версии 3.5 и новее не поддерживаются виндовым портом PyGObject)
-2. PyGObject (с GTK 3.x в комплекте) ищется по ссылкам из ихнего FAQ -
-   https://pygobject.readthedocs.io/en/latest/faq.html
-   должен найтись установщик pygi-aio-3.*.exe версии посвежее.
+2. PyGObject (с GTK 3.x в комплекте) ищется по ссылкам здесь:
+   http://pygobject.readthedocs.io/en/latest/guide/faq.html
+   где должен найтись установщик pygi-aio-3.*.exe версии 3.18 или новее.
    В нем при установке нужно указать установленную версию питона,
-   выбрать в списках пакетов GTK 3.x и Pango. Остальное не требуется.
+   выбрать в списках пакетов GTK 3.x и Pango.
+   Остальное (вроде бы) не требуется.
 3. Установить питоний модуль sqlparse командой:
    python -m pip install sqlparse
 
