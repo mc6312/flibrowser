@@ -767,14 +767,14 @@ class Library():
 
 # debug
 def main():
-    print(AuthorInfo.make_shortname('Иванов Иван Иваныч, Сидоров Сидор Сидорыч'))
+    """print(AuthorInfo.make_shortname('Иванов Иван Иваныч, Сидоров Сидор Сидорыч'))
     print(AuthorInfo.make_shortname('Петров Пётр Петрович, Сергеев Сергей Сергеич, Климов Клим Климыч, Чон Ду Хван'))
     print(AuthorInfo.make_shortname('Петров-Задерищенский Навуходоносор Сарданапалович, Сергеев-Оглы Нурмухаммед Кельдыбабаевич, Климов Клим Климыч, Чон Ду Хван'))
 
     return
 
     print(BookFileNameTemplate.TEMPLATE_HELP)
-    return
+    return"""
 
     library = Library()
     lse = library.load_settings()
@@ -798,7 +798,7 @@ def main():
 
     #print(library.tags)
 
-    t = BookFileNameTemplate(library, '%a/%i - %s (%n) - %t (shit)')
+    """t = BookFileNameTemplate(library, '%a/%i - %s (%n) - %t (shit)')
     #print(t.template)
 
     print('* template test *')
@@ -813,7 +813,7 @@ def main():
         if maxk <= 0:
             break
 
-    return #!!!
+    return #!!!"""
 
     print(u'* поиск')
     t0 = time()

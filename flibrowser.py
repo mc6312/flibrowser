@@ -32,7 +32,7 @@ import os.path, sys
 # для отладки, чтоб не грузить БД в 100500 книжек (которой может и нет вовсе на момент отладки)
 from fbfakelib import fill_fake_library
 
-USEFAKELIBRARY = False
+USEFAKELIBRARY = True
 
 
 # нашевсё
@@ -42,8 +42,68 @@ library = Library()
 DATE_FORMAT = u'%x'
 
 
+class EntryBrowser():
+    """Костыль для выбора значения поля из списка"""
+
+    TITLE = 'Выбор'
+
+    def __init__(self, lib, fentry):
+        """Инициализация.
+        lib     - экземпляр Library,
+        fentry  - экземпляр FilterEntry."""
+
+        self.library = lib
+        self.filterentry = fentry
+
+        self.dialog = Gtk.Dialog(parent=None, title=self.TITLE)
+
+        self.dialog.set_size_request(800, 600)
+        self.dialog.add_buttons(Gtk.STOCK_OK, Gtk.ResponseType.OK, Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
+        self.dialog.set_default_response(Gtk.ResponseType.OK)
+
+        box = self.dialog.get_content_area()
+
+        self.lview, self.lstore, scwindow, _rndrs = create_listview((GObject.TYPE_STRING,),
+            (('', 0, False, True, 0.0),))
+
+        box.pack_start(self.lview, True, True, 0)
+
+    def run(self):
+        """Запускает диалог.
+        При нажатии кнопки "OK" помещает выбранное в списке значение
+        в self.filterentry.entry и возвращает True.
+        При нажатии кнопки "CANCEL" возвращает False."""
+
+        self.dialog.show_all()
+
+        ret = False
+
+        while True:
+            r = self.dialog.run()
+
+            if r == Gtk.ResponseType.OK:
+                break
+
+                #msg_dialog(self.dialog, u'Ошибка', es, msgtype=Gtk.MessageType.ERROR)
+            else:
+                break
+
+        self.dialog.hide()
+
+        if r == Gtk.ResponseType.OK:
+            return True
+        else:
+            return False
+
+
+class AuthorEntryBrowser(EntryBrowser):
+    TITLE = 'Выбор автора'
+
+    pass
+
+
 class FilterEntry():
-    """Свалка виджетов для ввода регекспа фильтрации.
+    """Свалка виджетов для ввода текста или регекспа фильтрации.
     Умеет показывать иконками правильность ввода регулярного
     выражения.
 
@@ -58,6 +118,8 @@ class FilterEntry():
     INVALID = 'gtk-no'
 
     ICON_SIZE = Gtk.IconSize.BUTTON
+
+    BROWSER_CLASS = None
 
     def search_regexp(self, s):
         """если выражение не указано - возвращаем True, т.к. отсутствие
@@ -84,20 +146,30 @@ class FilterEntry():
             self.validate_pattern()
 
     def __init__(self, grid, rowlabel):
-        """grid - экземпляр LabeledGrid,
-        rowlabel - самый левый виджет в строке grid, в которую пихаем остальное."""
+        """grid         - экземпляр LabeledGrid,
+        rowlabel        - самый левый виджет в строке grid, в которую пихаем остальное."""
 
         def ttwg(w, ttt):
             w.set_tooltip_text(ttt)
             return w
 
         #
+        entrybox = Gtk.HBox()
+
         self.entry = Gtk.Entry()
         self.entry.set_activates_default(True) # чтоб дефолтная кнопка в окне работала
         self.entry.connect('icon_release', self.entry_icon_pressed)
-        grid.append_col(self.entry, True)
+        entrybox.pack_start(self.entry, True, True, 0)
+
+        grid.append_col(entrybox, True)
 
         rowlabel.set_mnemonic_widget(self.entry)
+
+        if self.BROWSER_CLASS is None:
+            self.browser = None
+        else:
+            self.browser = self.BROWSER_CLASS(library, self.entry)
+            self.browser.dialog.set_transient_for(grid.get_parent_window())
 
         #
         self.set_status_icon(self.EMPTY)
@@ -108,6 +180,12 @@ class FilterEntry():
         grid.append_col(self.btnclear)"""
 
         #
+        if self.browser:
+            brbtn = Gtk.Button('…')
+            brbtn.connect('clicked', lambda b: self.run_browser())
+            entrybox.pack_end(brbtn, False, False, 0)
+
+        #
         self.chkisregexp = ttwg(Gtk.CheckButton(u'RE'), u'В поле регулярное выражение')
         self.chkisregexp.connect('toggled', self.chkisregexp_toggled)
         grid.append_col(self.chkisregexp)
@@ -116,6 +194,9 @@ class FilterEntry():
         self.pattern = None
         self.regex = None
         self.searchfunc = self.search_text
+
+    def run_browser(self):
+        self.browser.run()
 
     def reset(self):
         """Сброс полей"""
@@ -171,6 +252,8 @@ class FilterEntry():
 
 
 class AuthorFilterEntry(FilterEntry):
+    BROWSER_CLASS = AuthorEntryBrowser
+
     def filter_pattern(self, s):
         """Для поля ввода имени автора - удаление некоторых нежелательных
         символов."""
